@@ -26,13 +26,13 @@ struct Check: ParsableCommand {
         let lprojs = try FileManager.default.contentsOfDirectory(atPath: self.directory)
             .filter { languageLprojs.contains($0) }
             .map { "\(self.directory)/\($0)" }
-            .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == (true, true) }
+            .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .directory }
         let langStrings = try lprojs
             .map { lproj in
                 let stringsPaths = try FileManager.default.contentsOfDirectory(atPath: lproj)
                     .filter { $0.hasSuffix(".strings") }
                     .map { "\(lproj)/\($0)" }
-                    .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == (true, false) }
+                    .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .file }
 
                 let stringsDatas = try stringsPaths
                     .map { (path: $0, content: try parseStrings(Data(contentsOf: URL(fileURLWithPath: $0)))) }
@@ -93,11 +93,21 @@ final class StandardErrorOutputStream: TextOutputStream {
     }
 }
 
+enum FileOrDirectory {
+    case notExist
+    case file
+    case directory
+}
+
 extension FileManager {
-    func fileOrDirectoryExists(atPath path: String) -> (exists: Bool, isDirectory: Bool) {
+    func fileOrDirectoryExists(atPath path: String) -> FileOrDirectory {
         var isDirectory: ObjCBool = false
         let exists = self.fileExists(atPath: path, isDirectory: &isDirectory)
-        return (exists: exists, isDirectory: isDirectory.boolValue)
+        switch (exists, isDirectory.boolValue) {
+        case (false, _): return .notExist
+        case (true, false): return .file
+        case (true, true): return .directory
+        }
     }
 }
 
