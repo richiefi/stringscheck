@@ -27,27 +27,21 @@ struct Check: ParsableCommand {
             .filter { languageLprojs.contains($0) }
             .map { "\(self.directory)/\($0)" }
             .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .directory }
-        let langStrings = try lprojs
             .map { lproj in
-                let stringsPaths = try FileManager.default.contentsOfDirectory(atPath: lproj)
+                let stringsFiles = try FileManager.default.contentsOfDirectory(atPath: lproj)
                     .filter { $0.hasSuffix(".strings") }
                     .map { "\(lproj)/\($0)" }
                     .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .file }
-
-                let stringsDatas = try stringsPaths
-                    .map { (path: $0, content: try parseStrings(Data(contentsOf: URL(fileURLWithPath: $0)))) }
-
-                let combinedStrings = try stringsDatas
-                    .reduce(into: [String: String]()) { acc, strings in
-                        for (key, value) in strings.content {
-                            if acc[key] != nil { throw DuplicateKey(file: strings.path, key: key) }
-                            acc[key] = value
-                        }
-                    }
-
-                return (lproj: lproj, strings: combinedStrings)
+                return (lproj, stringsFiles)
             }
 
+        let stringsDicts = try lprojs.map { lproj, stringsFiles in
+            try (path: lproj, content: stringsFiles.map { try parseStrings(Data(contentsOf: URL(fileURLWithPath: $0))) })
+        }
+
+        let langStrings = stringsDicts.map { lproj, dicts in
+            combineLanguageDicts(lproj: lproj, dicts: dicts)
+        }
 
         var missingKeys = Set<MissingLanguageKey>()
         var accumulatedErrors = [any Error]()
@@ -56,8 +50,8 @@ struct Check: ParsableCommand {
                 fatalError("Invalid combination")
             }
 
-            for key1 in l1.strings.keys {
-                guard l2.strings[key1] == nil else { continue }
+            for key1 in l1.translations.keys {
+                guard l2.translations[key1] == nil else { continue }
                 let missingLanguageKey = MissingLanguageKey(key: key1, lproj: l2.lproj)
                 guard !missingKeys.contains(missingLanguageKey) else { continue }
                 missingKeys.insert(missingLanguageKey)
@@ -65,8 +59,8 @@ struct Check: ParsableCommand {
                 continue
             }
 
-            for key2 in l2.strings.keys {
-                guard l1.strings[key2] == nil else { continue }
+            for key2 in l2.translations.keys {
+                guard l1.translations[key2] == nil else { continue }
                 let missingLanguageKey = MissingLanguageKey(key: key2, lproj: l1.lproj)
                 guard !missingKeys.contains(missingLanguageKey) else { continue }
                 missingKeys.insert(missingLanguageKey)
@@ -83,6 +77,30 @@ struct Check: ParsableCommand {
 
         throw ExitCode(1)
     }
+}
+
+struct LanguageCombinationResult {
+    var lproj: String
+    var translations: [String: String]
+    var errors: [any Error]
+}
+
+func combineLanguageDicts(lproj: String, dicts: [[String: String]]) -> LanguageCombinationResult {
+    var errors = [any Error]()
+    let combinedStrings: [String: String] = dicts.reduce(into: [String: String]()) { acc, dict in
+        for (key, value) in dict {
+            if acc[key] != nil {
+                errors.append(DuplicateKey(file: lproj, key: key))
+                continue
+            }
+            acc[key] = value
+        }
+    }
+    return LanguageCombinationResult(
+        lproj: lproj,
+        translations: combinedStrings,
+        errors: errors
+    )
 }
 
 var stderr = StandardErrorOutputStream()
