@@ -35,8 +35,12 @@ struct Check: ParsableCommand {
                 return (lproj, stringsFiles)
             }
 
-        let stringsDicts = try lprojs.map { lproj, stringsFiles in
-            try (path: lproj, content: stringsFiles.map { try parseStrings(Data(contentsOf: URL(fileURLWithPath: $0))) })
+        let stringsDatas = try lprojs.map { lproj, stringsFiles in
+            try (path: lproj, data: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
+        }
+
+        let stringsDicts = try stringsDatas.map { lproj, datas in
+            try (path: lproj, content: datas.map { try parseStrings($0) })
         }
 
         let langStrings = stringsDicts.map { lproj, dicts in
