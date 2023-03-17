@@ -91,26 +91,31 @@ struct ParsedLanguageProject {
 func readStringsContents(directory: String, languages: [String]) throws -> [LanguageProjectDatas] {
     let languageLprojs = Set(languages.map { "\($0).lproj" })
     let rootURL = URL(filePath: directory, directoryHint: .isDirectory)
-    let lprojDatas = try FileManager.default.contentsOfDirectory(atPath: directory)
-        .filter { languageLprojs.contains($0) }
-        .map { LanguageProject(URL(filePath: $0, directoryHint: .isDirectory, relativeTo: rootURL).absoluteURL) }
-        .filter { FileManager.default.fileOrDirectoryExists(atPath: $0.path) == .directory }
-        .map { lproj in
-            let stringsFiles = try FileManager.default.contentsOfDirectory(atPath: lproj.path)
-                .filter { $0.hasSuffix(".strings") }
-                .map { StringsFile(languageProject: lproj, name: $0) }
-                .filter { FileManager.default.fileOrDirectoryExists(atPath: $0.path) == .file }
-
-            let lprojDatas = try LanguageProjectDatas(
-                lproj: lproj,
-                datas: Dictionary(
-                    uniqueKeysWithValues: stringsFiles.map { ($0, try Data(contentsOf: URL(fileURLWithPath: $0.path))) }
-                )
-            )
-
-            return lprojDatas
+    let lprojDatas: [LanguageProjectDatas] = try FileManager.default.contentsOfDirectory(atPath: directory)
+        .filter { (f: String) -> Bool in languageLprojs.contains(f) }
+        .map { (f: String) -> LanguageProject in
+            LanguageProject(URL(filePath: f, directoryHint: .isDirectory, relativeTo: rootURL).absoluteURL)
         }
+        .filter { (lproj: LanguageProject) -> Bool in
+            FileManager.default.fileOrDirectoryExists(atPath: lproj.path) == .directory
+        }
+        .map(readLanguageProjectDatas(_:))
 
+    return lprojDatas
+}
+
+func readLanguageProjectDatas(_ lproj: LanguageProject) throws -> LanguageProjectDatas {
+    let stringsFiles: [StringsFile] = try FileManager.default.contentsOfDirectory(atPath: lproj.path)
+        .filter { $0.hasSuffix(".strings") }
+        .map { StringsFile(languageProject: lproj, name: $0) }
+        .filter { FileManager.default.fileOrDirectoryExists(atPath: $0.path) == .file }
+
+    let lprojDatas: LanguageProjectDatas = try LanguageProjectDatas(
+        lproj: lproj,
+        datas: Dictionary(
+            uniqueKeysWithValues: stringsFiles.map { ($0, try Data(contentsOf: URL(fileURLWithPath: $0.path))) }
+        )
+    )
     return lprojDatas
 }
 
