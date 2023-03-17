@@ -59,7 +59,7 @@ extension LanguageProject: CustomStringConvertible {
     var description: String { self.path }
 }
 
-struct LprojDatas {
+struct LanguageProjectDatas {
     var lproj: LanguageProject
     var datas: [StringsFile: Data]
 }
@@ -88,7 +88,7 @@ struct ParsedLanguageProject {
     var content: [StringsFile: [String: String]]
 }
 
-func readStringsContents(directory: String, languages: [String]) throws -> [LprojDatas] {
+func readStringsContents(directory: String, languages: [String]) throws -> [LanguageProjectDatas] {
     let languageLprojs = Set(languages.map { "\($0).lproj" })
     let rootURL = URL(filePath: directory, directoryHint: .isDirectory)
     let lprojDatas = try FileManager.default.contentsOfDirectory(atPath: directory)
@@ -101,7 +101,7 @@ func readStringsContents(directory: String, languages: [String]) throws -> [Lpro
                 .map { StringsFile(languageProject: lproj, name: $0) }
                 .filter { FileManager.default.fileOrDirectoryExists(atPath: $0.path) == .file }
 
-            let lprojDatas = try LprojDatas(
+            let lprojDatas = try LanguageProjectDatas(
                 lproj: lproj,
                 datas: Dictionary(
                     uniqueKeysWithValues: stringsFiles.map { ($0, try Data(contentsOf: URL(fileURLWithPath: $0.path))) }
