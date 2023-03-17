@@ -68,6 +68,10 @@ struct Check: ParsableCommand {
 
 struct LanguageProject: Hashable {
     var url: URL
+
+    var path: String {
+        self.url.path(percentEncoded: false)
+    }
 }
 
 extension LanguageProject {
@@ -77,7 +81,7 @@ extension LanguageProject {
 }
 
 extension LanguageProject: CustomStringConvertible {
-    var description: String { self.url.path(percentEncoded: false) }
+    var description: String { self.path }
 }
 
 struct LprojDatas {
