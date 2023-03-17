@@ -21,26 +21,9 @@ struct Check: ParsableCommand {
     var languages: [String]
 
     func run() throws {
-        let languageLprojs = Set(self.languages.map { "\($0).lproj" })
-
-        let lprojs = try FileManager.default.contentsOfDirectory(atPath: self.directory)
-            .filter { languageLprojs.contains($0) }
-            .map { "\(self.directory)/\($0)" }
-            .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .directory }
-            .map { lproj in
-                let stringsFiles = try FileManager.default.contentsOfDirectory(atPath: lproj)
-                    .filter { $0.hasSuffix(".strings") }
-                    .map { "\(lproj)/\($0)" }
-                    .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .file }
-                return (lproj, stringsFiles)
-            }
-
-        let stringsDatas = try lprojs.map { lproj, stringsFiles in
-            try (path: lproj, data: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
-        }
-
-        let stringsDicts = try stringsDatas.map { lproj, datas in
-            try (path: lproj, content: datas.map { try parseStrings($0) })
+        let fileContents = try readStringsContents(directory: self.directory, languages: self.languages)
+        let stringsDicts = try fileContents.map { lprojDatas in
+            try (path: lprojDatas.lproj, content: lprojDatas.datas.map { try parseStrings($0) })
         }
 
         let langStrings = stringsDicts.map { lproj, dicts in
@@ -81,6 +64,31 @@ struct Check: ParsableCommand {
 
         throw ExitCode(1)
     }
+}
+
+struct LprojDatas {
+    var lproj: String
+    var datas: [Data]
+}
+
+func readStringsContents(directory: String, languages: [String]) throws -> [LprojDatas] {
+    let languageLprojs = Set(languages.map { "\($0).lproj" })
+    let lprojs = try FileManager.default.contentsOfDirectory(atPath: directory)
+        .filter { languageLprojs.contains($0) }
+        .map { "\(directory)/\($0)" }
+        .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .directory }
+        .map { lproj in
+            let stringsFiles = try FileManager.default.contentsOfDirectory(atPath: lproj)
+                .filter { $0.hasSuffix(".strings") }
+                .map { "\(lproj)/\($0)" }
+                .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .file }
+            return (lproj, stringsFiles)
+        }
+
+    let stringsDatas = try lprojs.map { lproj, stringsFiles in
+        try (path: lproj, data: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
+    }
+    return stringsDatas.map { LprojDatas(lproj: $0, datas: $1) }
 }
 
 struct LanguageCombinationResult {
