@@ -66,8 +66,22 @@ struct Check: ParsableCommand {
     }
 }
 
+struct LanguageProject: Hashable {
+    var url: URL
+}
+
+extension LanguageProject {
+    init(_ url: URL) {
+        self.url = url
+    }
+}
+
+extension LanguageProject: CustomStringConvertible {
+    var description: String { self.url.path(percentEncoded: false) }
+}
+
 struct LprojDatas {
-    var lproj: String
+    var lproj: LanguageProject
     var datas: [Data]
 }
 
@@ -88,21 +102,23 @@ func readStringsContents(directory: String, languages: [String]) throws -> [Lpro
     let stringsDatas = try lprojs.map { lproj, stringsFiles in
         try (path: lproj, data: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
     }
-    return stringsDatas.map { LprojDatas(lproj: $0, datas: $1) }
+    return stringsDatas.map {
+        LprojDatas(lproj: LanguageProject(URL(filePath: $0, directoryHint: .isDirectory)), datas: $1)
+    }
 }
 
 struct LanguageCombinationResult {
-    var lproj: String
+    var lproj: LanguageProject
     var translations: [String: String]
     var errors: [any Error]
 }
 
-func combineLanguageDicts(lproj: String, dicts: [[String: String]]) -> LanguageCombinationResult {
+func combineLanguageDicts(lproj: LanguageProject, dicts: [[String: String]]) -> LanguageCombinationResult {
     var errors = [any Error]()
     let combinedStrings: [String: String] = dicts.reduce(into: [String: String]()) { acc, dict in
         for (key, value) in dict {
             if acc[key] != nil {
-                errors.append(DuplicateKey(file: lproj, key: key))
+                errors.append(DuplicateKey(key: key, lproj: lproj))
                 continue
             }
             acc[key] = value
@@ -143,16 +159,16 @@ extension FileManager {
 
 struct DataTypeError: Error {}
 struct DuplicateKey: Error {
-    let file: String
     let key: String
+    let lproj: LanguageProject
 }
 struct MissingLanguageKey: Hashable {
     let key: String
-    let lproj: String
+    let lproj: LanguageProject
 }
 struct MissingKeyError: Error {
     let key: MissingLanguageKey
-    let foundInLproj: String
+    let foundInLproj: LanguageProject
 }
 
 extension MissingKeyError: CustomStringConvertible {
