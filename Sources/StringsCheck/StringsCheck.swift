@@ -96,15 +96,13 @@ func readStringsContents(directory: String, languages: [String]) throws -> [Lpro
                 .filter { $0.hasSuffix(".strings") }
                 .map { "\(lproj)/\($0)" }
                 .filter { FileManager.default.fileOrDirectoryExists(atPath: $0) == .file }
-            return (lproj, stringsFiles)
+            return (LanguageProject(URL(filePath: lproj, directoryHint: .isDirectory)), stringsFiles)
         }
 
-    let stringsDatas = try lprojs.map { lproj, stringsFiles in
-        try (path: lproj, data: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
+    let lprojDatas = try lprojs.map { lproj, stringsFiles in
+        try LprojDatas(lproj: lproj, datas: stringsFiles.map { try Data(contentsOf: URL(fileURLWithPath: $0)) })
     }
-    return stringsDatas.map {
-        LprojDatas(lproj: LanguageProject(URL(filePath: $0, directoryHint: .isDirectory)), datas: $1)
-    }
+    return lprojDatas
 }
 
 struct LanguageCombinationResult {
