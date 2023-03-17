@@ -31,7 +31,7 @@ struct Check: ParsableCommand {
         }
 
         var missingKeys = Set<MissingLanguageKey>()
-        var accumulatedErrors = [any Error]()
+        var accumulatedErrors = langStrings.flatMap(\.errors)
         for langs in langStrings.combinations(ofCount: 2) {
             guard let l1 = langs.first, let l2 = langs.dropFirst().first, langs.count == 2 else {
                 fatalError("Invalid combination")
@@ -158,10 +158,16 @@ extension FileManager {
 }
 
 struct DataTypeError: Error {}
+
 struct DuplicateKey: Error {
     let key: String
     let lproj: LanguageProject
 }
+
+extension DuplicateKey: CustomStringConvertible {
+    var description: String { "Duplicate key \(self.key.debugDescription) in \(self.lproj)" }
+}
+
 struct MissingLanguageKey: Hashable {
     let key: String
     let lproj: LanguageProject
