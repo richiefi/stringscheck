@@ -22,44 +22,19 @@ struct Check: ParsableCommand {
 
     func run() throws {
         let fileContents = try readStringsContents(directory: self.directory, languages: self.languages)
-        let stringsDicts = try fileContents.map { lprojDatas in
-            try (path: lprojDatas.lproj, content: lprojDatas.datas.mapValues { try parseStrings($0) })
+        let parsedProjects = try fileContents.map { lprojDatas in
+            try ParsedLanguageProject(
+                languageProject: lprojDatas.lproj,
+                content: lprojDatas.datas.mapValues { try parseStrings($0) }
+            )
         }
 
-        let langStrings = stringsDicts.map { lproj, dicts in
-            combineLanguageDicts(lproj: lproj, dicts: dicts)
-        }
+        let errors = findErrors(in: parsedProjects)
 
-        var missingKeys = Set<MissingLanguageKey>()
-        var accumulatedErrors = langStrings.flatMap(\.errors)
-        for langs in langStrings.combinations(ofCount: 2) {
-            guard let l1 = langs.first, let l2 = langs.dropFirst().first, langs.count == 2 else {
-                fatalError("Invalid combination")
-            }
+        guard !errors.isEmpty else { return }
 
-            for key1 in l1.translations.keys {
-                guard l2.translations[key1] == nil else { continue }
-                let missingLanguageKey = MissingLanguageKey(key: key1, lproj: l2.lproj)
-                guard !missingKeys.contains(missingLanguageKey) else { continue }
-                missingKeys.insert(missingLanguageKey)
-                accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l1.lproj))
-                continue
-            }
-
-            for key2 in l2.translations.keys {
-                guard l1.translations[key2] == nil else { continue }
-                let missingLanguageKey = MissingLanguageKey(key: key2, lproj: l1.lproj)
-                guard !missingKeys.contains(missingLanguageKey) else { continue }
-                missingKeys.insert(missingLanguageKey)
-                accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l2.lproj))
-                continue
-            }
-        }
-
-        guard !accumulatedErrors.isEmpty else { return }
-
-        for accumulatedError in accumulatedErrors {
-            print(accumulatedError, to: &stderr)
+        for error in errors {
+            print(error, to: &stderr)
         }
 
         throw ExitCode(1)
@@ -108,6 +83,11 @@ extension StringsFile: CustomStringConvertible {
     }
 }
 
+struct ParsedLanguageProject {
+    var languageProject: LanguageProject
+    var content: [StringsFile: [String: String]]
+}
+
 func readStringsContents(directory: String, languages: [String]) throws -> [LprojDatas] {
     let languageLprojs = Set(languages.map { "\($0).lproj" })
     let rootURL = URL(filePath: directory, directoryHint: .isDirectory)
@@ -132,6 +112,40 @@ func readStringsContents(directory: String, languages: [String]) throws -> [Lpro
         }
 
     return lprojDatas
+}
+
+func findErrors(in projects: [ParsedLanguageProject]) -> [any Error] {
+    let langStrings = projects.map { project in
+        combineLanguageDicts(lproj: project.languageProject, dicts: project.content)
+    }
+
+    var missingKeys = Set<MissingLanguageKey>()
+    var accumulatedErrors = langStrings.flatMap(\.errors)
+    for langs in langStrings.combinations(ofCount: 2) {
+        guard let l1 = langs.first, let l2 = langs.dropFirst().first, langs.count == 2 else {
+            fatalError("Invalid combination")
+        }
+
+        for key1 in l1.translations.keys {
+            guard l2.translations[key1] == nil else { continue }
+            let missingLanguageKey = MissingLanguageKey(key: key1, lproj: l2.lproj)
+            guard !missingKeys.contains(missingLanguageKey) else { continue }
+            missingKeys.insert(missingLanguageKey)
+            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l1.lproj))
+            continue
+        }
+
+        for key2 in l2.translations.keys {
+            guard l1.translations[key2] == nil else { continue }
+            let missingLanguageKey = MissingLanguageKey(key: key2, lproj: l1.lproj)
+            guard !missingKeys.contains(missingLanguageKey) else { continue }
+            missingKeys.insert(missingLanguageKey)
+            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l2.lproj))
+            continue
+        }
+    }
+
+    return accumulatedErrors
 }
 
 struct LanguageCombinationResult {
