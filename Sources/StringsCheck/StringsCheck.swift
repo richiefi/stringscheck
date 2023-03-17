@@ -23,7 +23,7 @@ struct Check: ParsableCommand {
     func run() throws {
         let fileContents = try readStringsContents(directory: self.directory, languages: self.languages)
         let stringsDicts = try fileContents.map { lprojDatas in
-            try (path: lprojDatas.lproj, content: lprojDatas.datas.map { try parseStrings($0.value) })
+            try (path: lprojDatas.lproj, content: lprojDatas.datas.mapValues { try parseStrings($0) })
         }
 
         let langStrings = stringsDicts.map { lproj, dicts in
@@ -140,15 +140,20 @@ struct LanguageCombinationResult {
     var errors: [any Error]
 }
 
-func combineLanguageDicts(lproj: LanguageProject, dicts: [[String: String]]) -> LanguageCombinationResult {
+func combineLanguageDicts(lproj: LanguageProject, dicts: [StringsFile: [String: String]]) -> LanguageCombinationResult {
     var errors = [any Error]()
-    let combinedStrings: [String: String] = dicts.reduce(into: [String: String]()) { acc, dict in
-        for (key, value) in dict {
-            if acc[key] != nil {
-                errors.append(DuplicateKey(key: key, lproj: lproj))
+    var combinedStrings = [String: String]()
+    var stringLocation = [String: StringsFile]()
+    for stringsFileContents in dicts {
+        for (key, value) in stringsFileContents.value {
+            if let earlierLocation = stringLocation[key] {
+                errors.append(
+                    DuplicateKey(key: key, lproj: lproj, file1: earlierLocation, file2: stringsFileContents.key)
+                )
                 continue
             }
-            acc[key] = value
+            stringLocation[key] = stringsFileContents.key
+            combinedStrings[key] = value
         }
     }
     return LanguageCombinationResult(
@@ -189,10 +194,17 @@ struct DataTypeError: Error {}
 struct DuplicateKey: Error {
     let key: String
     let lproj: LanguageProject
+    let file1: StringsFile
+    let file2: StringsFile
 }
 
 extension DuplicateKey: CustomStringConvertible {
-    var description: String { "Duplicate key \(self.key.debugDescription) in \(self.lproj)" }
+    var description: String {
+        let key = self.key.debugDescription
+        let file1 = self.file1.name.debugDescription
+        let file2 = self.file2.name.debugDescription
+        return "Duplicate key \(key) in \(self.lproj). Files: \(file1), \(file2)"
+    }
 }
 
 struct MissingLanguageKey: Hashable {
