@@ -1,6 +1,6 @@
 import Foundation
-import XCTest
 @testable import StringsCheck
+import XCTest
 
 final class StringsCheckTests: XCTestCase {
     func testEmpty() throws {
@@ -29,7 +29,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj1,
             content: [
                 l1sf1: strings1,
-                l1sf2: strings2
+                l1sf2: strings2,
             ]
         )
 
@@ -37,7 +37,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj2,
             content: [
                 l2sf1: strings1,
-                l2sf2: strings2
+                l2sf2: strings2,
             ]
         )
 
@@ -69,7 +69,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj1,
             content: [
                 l1sf1: strings1,
-                l1sf2: strings2
+                l1sf2: strings2,
             ]
         )
 
@@ -77,7 +77,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj2,
             content: [
                 l2sf1: strings1,
-                l2sf2: strings2
+                l2sf2: strings2,
             ]
         )
 
@@ -85,7 +85,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj3,
             content: [
                 l3sf1: strings1,
-                l3sf2: strings2
+                l3sf2: strings2,
             ]
         )
 
@@ -118,7 +118,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj1,
             content: [
                 l1sf1: strings1,
-                l1sf2: strings2
+                l1sf2: strings2,
             ]
         )
 
@@ -126,7 +126,7 @@ final class StringsCheckTests: XCTestCase {
             languageProject: lproj2,
             content: [
                 l2sf1: strings1,
-                l2sf2: strings2
+                l2sf2: strings2,
             ]
         )
 
@@ -135,7 +135,7 @@ final class StringsCheckTests: XCTestCase {
             content: [
                 l3sf1: strings1,
                 l3sf2: strings2,
-                l3sf3: [:]
+                l3sf3: [:],
             ]
         )
 

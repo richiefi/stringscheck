@@ -8,10 +8,10 @@ struct Check: ParsableCommand {
         commandName: "stringscheck",
         abstract: "Checks that .strings localization files for different languages match",
         discussion: """
-            Looks for lproj directories inside a directory and ensures they contain localizations for the same strings.
+        Looks for lproj directories inside a directory and ensures they contain localizations for the same strings.
 
-            Example: stringscheck /path/with/lprojs en fi sv
-            """
+        Example: stringscheck /path/with/lprojs en fi sv
+        """
     )
 
     @Argument(help: "The directory to look in for lproj folders")
