@@ -56,8 +56,12 @@ public struct ParsedLanguageProject {
     }
 }
 
+private func ensureExtension(language: String) -> String {
+    language.hasSuffix(".lproj") ? language : "\(language).lproj"
+}
+
 public func readStringsContents(directory: String, languages: [String]) throws -> [LanguageProjectDatas] {
-    let languageLprojs = Set(languages.map { "\($0).lproj" })
+    let languageLprojs = Set(languages.map(ensureExtension(language:)))
     let rootURL = URL(filePath: directory, directoryHint: .isDirectory)
     let lprojDatas: [LanguageProjectDatas] = try FileManager.default.contentsOfDirectory(atPath: directory)
         .filter { (f: String) -> Bool in languageLprojs.contains(f) }
