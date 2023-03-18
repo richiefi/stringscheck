@@ -1,5 +1,5 @@
 import Foundation
-@testable import StringsCheck
+@testable import StringsCheckCore
 import XCTest
 
 final class StringsCheckTests: XCTestCase {

@@ -20,13 +20,19 @@ let package = Package(
         .executableTarget(
             name: "StringsCheck",
             dependencies: [
-                .product(name: "Algorithms", package: "swift-algorithms"),
+                "StringsCheckCore",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
             name: "StringsCheckTests",
-            dependencies: ["StringsCheck"]
+            dependencies: ["StringsCheckCore"]
+        ),
+        .target(
+            name: "StringsCheckCore",
+            dependencies: [
+                .product(name: "Algorithms", package: "swift-algorithms"),
+            ]
         ),
     ]
 )
