@@ -17,8 +17,14 @@ struct Check: ParsableCommand {
     @Argument(help: "The directory to look in for lproj folders")
     var directory: String
 
-    @Argument(help: "Languages to include")
+    @Argument(help: "Languages to include (two or more)")
     var languages: [String]
+
+    func validate() throws {
+        guard self.languages.count > 1 else {
+            throw ValidationError("You must specify at least two languages")
+        }
+    }
 
     func run() throws {
         let fileContents = try readStringsContents(directory: self.directory, languages: self.languages)
