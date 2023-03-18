@@ -125,9 +125,9 @@ func readLanguageProjectDatas(_ lproj: LanguageProject) throws -> LanguageProjec
     return lprojDatas
 }
 
-func findErrors(in projects: [ParsedLanguageProject]) -> [any Error] {
+func findErrors(in projects: [ParsedLanguageProject]) -> [LanguageComparisonError] {
     var missingKeys = Set<MissingLanguageKey>()
-    var accumulatedErrors = [any Error]()
+    var accumulatedErrors = [LanguageComparisonError]()
 
     guard let firstProject = projects.first else { return [] }
     let initialCommonTables = firstProject.content.keys.map(\.name)
@@ -142,7 +142,11 @@ func findErrors(in projects: [ParsedLanguageProject]) -> [any Error] {
     for project in projects {
         for table in tables.all {
             if !project.content.contains(where: { $0.key.name == table }) {
-                accumulatedErrors.append(MissingStringsFileError(languageProject: project.languageProject, name: table))
+                accumulatedErrors.append(
+                    .missingFile(
+                        MissingStringsFileError(languageProject: project.languageProject, name: table)
+                    )
+                )
             }
         }
     }
@@ -162,7 +166,9 @@ func findErrors(in projects: [ParsedLanguageProject]) -> [any Error] {
             let missingLanguageKey = MissingLanguageKey(key: key, stringsFile: targetFile)
             guard !missingKeys.contains(missingLanguageKey) else { return }
             missingKeys.insert(missingLanguageKey)
-            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundIn: sourceFile))
+            accumulatedErrors.append(
+                .missingKey(MissingKeyError(key: missingLanguageKey, foundIn: sourceFile))
+            )
         }
 
         for table in tables.common {
@@ -210,7 +216,12 @@ extension FileManager {
 
 struct DataTypeError: Error {}
 
-struct MissingStringsFileError: Error {
+enum LanguageComparisonError: Error, Hashable {
+    case missingFile(MissingStringsFileError)
+    case missingKey(MissingKeyError)
+}
+
+struct MissingStringsFileError: Error, Hashable {
     let languageProject: LanguageProject
     let name: String
 }
@@ -226,7 +237,7 @@ struct MissingLanguageKey: Hashable {
     let stringsFile: StringsFile
 }
 
-struct MissingKeyError: Error {
+struct MissingKeyError: Error, Hashable {
     let key: MissingLanguageKey
     let foundIn: StringsFile
 }
