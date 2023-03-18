@@ -179,6 +179,15 @@ public enum LanguageComparisonError: Error, Hashable {
     case missingKey(MissingKeyError)
 }
 
+extension LanguageComparisonError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case let .missingFile(e): return String(describing: e)
+        case let .missingKey(e): return String(describing: e)
+        }
+    }
+}
+
 public struct MissingStringsFileError: Error, Hashable {
     public let languageProject: LanguageProject
     public let name: String
