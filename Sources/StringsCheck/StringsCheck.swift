@@ -120,66 +120,60 @@ func readLanguageProjectDatas(_ lproj: LanguageProject) throws -> LanguageProjec
 }
 
 func findErrors(in projects: [ParsedLanguageProject]) -> [any Error] {
-    let langStrings = projects.map { project in
-        combineLanguageDicts(lproj: project.languageProject, dicts: project.content)
+    var missingKeys = Set<MissingLanguageKey>()
+    var accumulatedErrors = [any Error]()
+
+    guard let firstProject = projects.first else { return [] }
+    let initialCommonTables = firstProject.content.keys.map(\.name)
+
+    let tables = projects
+        .map { project in project.content.keys }
+        .reduce(into: (all: Set<String>(), common: Set(initialCommonTables))) { tables, stringsFiles in
+            tables.all.formUnion(stringsFiles.map(\.name))
+            tables.common.formIntersection(stringsFiles.map(\.name))
+        }
+
+    for project in projects {
+        for table in tables.all {
+            if !project.content.contains(where: { $0.key.name == table }) {
+                accumulatedErrors.append(MissingStringsFileError(languageProject: project.languageProject, name: table))
+            }
+        }
     }
 
-    var missingKeys = Set<MissingLanguageKey>()
-    var accumulatedErrors = langStrings.flatMap(\.errors)
-    for langs in langStrings.combinations(ofCount: 2) {
-        guard let l1 = langs.first, let l2 = langs.dropFirst().first, langs.count == 2 else {
-            fatalError("Invalid combination")
+    for projectPair in projects.permutations(ofCount: 2) {
+        guard projectPair.count == 2 else { fatalError("Invalid combination \(projectPair)") }
+        let proj1 = projectPair[0]
+        let proj2 = projectPair[1]
+
+        func require(
+            key: String,
+            sourceFile: StringsFile,
+            targetFile: StringsFile,
+            targetContent: [String: String]
+        ) {
+            guard targetContent[key] == nil else { return }
+            let missingLanguageKey = MissingLanguageKey(key: key, stringsFile: targetFile)
+            guard !missingKeys.contains(missingLanguageKey) else { return }
+            missingKeys.insert(missingLanguageKey)
+            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundIn: sourceFile))
         }
 
-        for key1 in l1.translations.keys {
-            guard l2.translations[key1] == nil else { continue }
-            let missingLanguageKey = MissingLanguageKey(key: key1, lproj: l2.lproj)
-            guard !missingKeys.contains(missingLanguageKey) else { continue }
-            missingKeys.insert(missingLanguageKey)
-            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l1.lproj))
-            continue
-        }
+        for table in tables.common {
+            let (sf1, strings1) = proj1.content.first(where: { $0.key.name == table })!
+            let (sf2, strings2) = proj2.content.first(where: { $0.key.name == table })!
 
-        for key2 in l2.translations.keys {
-            guard l1.translations[key2] == nil else { continue }
-            let missingLanguageKey = MissingLanguageKey(key: key2, lproj: l1.lproj)
-            guard !missingKeys.contains(missingLanguageKey) else { continue }
-            missingKeys.insert(missingLanguageKey)
-            accumulatedErrors.append(MissingKeyError(key: missingLanguageKey, foundInLproj: l2.lproj))
-            continue
+            for key1 in strings1.keys {
+                require(key: key1, sourceFile: sf1, targetFile: sf2, targetContent: strings2)
+            }
+
+            for key2 in strings2.keys {
+                require(key: key2, sourceFile: sf2, targetFile: sf1, targetContent: strings1)
+            }
         }
     }
 
     return accumulatedErrors
-}
-
-struct LanguageCombinationResult {
-    var lproj: LanguageProject
-    var translations: [String: String]
-    var errors: [any Error]
-}
-
-func combineLanguageDicts(lproj: LanguageProject, dicts: [StringsFile: [String: String]]) -> LanguageCombinationResult {
-    var errors = [any Error]()
-    var combinedStrings = [String: String]()
-    var stringLocation = [String: StringsFile]()
-    for stringsFileContents in dicts {
-        for (key, value) in stringsFileContents.value {
-            if let earlierLocation = stringLocation[key] {
-                errors.append(
-                    DuplicateKey(key: key, lproj: lproj, file1: earlierLocation, file2: stringsFileContents.key)
-                )
-                continue
-            }
-            stringLocation[key] = stringsFileContents.key
-            combinedStrings[key] = value
-        }
-    }
-    return LanguageCombinationResult(
-        lproj: lproj,
-        translations: combinedStrings,
-        errors: errors
-    )
 }
 
 var stderr = StandardErrorOutputStream()
@@ -210,34 +204,30 @@ extension FileManager {
 
 struct DataTypeError: Error {}
 
-struct DuplicateKey: Error {
-    let key: String
-    let lproj: LanguageProject
-    let file1: StringsFile
-    let file2: StringsFile
+struct MissingStringsFileError: Error {
+    let languageProject: LanguageProject
+    let name: String
 }
 
-extension DuplicateKey: CustomStringConvertible {
+extension MissingStringsFileError: CustomStringConvertible {
     var description: String {
-        let key = self.key.debugDescription
-        let file1 = self.file1.name.debugDescription
-        let file2 = self.file2.name.debugDescription
-        return "Duplicate key \(key) in \(self.lproj). Files: \(file1), \(file2)"
+        "Missing strings file in \(self.languageProject.path.debugDescription): \(self.name.debugDescription)"
     }
 }
 
 struct MissingLanguageKey: Hashable {
     let key: String
-    let lproj: LanguageProject
+    let stringsFile: StringsFile
 }
+
 struct MissingKeyError: Error {
     let key: MissingLanguageKey
-    let foundInLproj: LanguageProject
+    let foundIn: StringsFile
 }
 
 extension MissingKeyError: CustomStringConvertible {
     var description: String {
-        "Missing key \(self.key.key.debugDescription) in \(self.key.lproj) (found in \(self.foundInLproj))"
+        "Missing key \(self.key.key.debugDescription) in \(self.key.stringsFile) (found in \(self.foundIn))"
     }
 }
 
